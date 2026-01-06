@@ -21,7 +21,7 @@ model:
 
 # Tokenizer
 tokenizer:
-  name: "meta-llama/Llama-2-7b-hf"
+  name: "openlm-research/open_llama_3b"
 
 # Training configuration (can use larger batch with smaller model)
 training:

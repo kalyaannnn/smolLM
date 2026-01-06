@@ -1,0 +1,47 @@
+# SmolLM 160M Model Configuration
+# ~1/4th the size of 600M model - faster training, still capable
+
+# Core dimensions (reduced from 600M)
+d_model: 768           # Half of 1536
+n_layers: 16          # Reduced from 24
+n_heads: 12           # Keep same (head_dim = 64)
+n_kv_heads: 4         # GQA: 12/4 = 3:1 ratio
+
+# FFN dimensions
+ffn_dim: 2048         # ~2.67x expansion (SwiGLU parity)
+
+# Vocabulary
+vocab_size: 32000     # Matches Llama 2 tokenizer
+
+# Sequence length
+max_seq_len: 2048
+
+# Position embeddings
+rope_theta: 10000.0
+nope_layer_interval: 4  # Hybrid NoPE: layers 3,7,11,15 skip RoPE
+
+# Regularization
+dropout: 0.0
+attention_dropout: 0.0
+
+# Initialization
+init_std_factor: 0.5
+scale_embeddings: true
+
+# Weight tying
+tie_embeddings: true
+
+# Attention implementation
+use_flash_attn: true
+
+# Precision
+dtype: "bfloat16"
+
+# Estimated parameters:
+# - Embeddings: 32000 * 768 = 24.6M
+# - Per layer attention: ~1.5M (with GQA)
+# - Per layer MLP: ~4.7M (SwiGLU)
+# - 16 layers: ~99M
+# - Final norm: ~0.8K
+# With tied embeddings: ~160M total
+

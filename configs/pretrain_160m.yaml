@@ -25,7 +25,7 @@ tokenizer:
 
 # Training configuration (can use larger batch with smaller model)
 training:
-  total_tokens: 10_000_000_000   # 10B tokens
+  total_tokens: 5_000_000_000    # 5B tokens
   micro_batch_size: 96           # Can fit more sequences (2x)
   seq_len: 2048
   gradient_accumulation: 16       # Effective: 96 * 16 * 2048 = 3.15M tokens/step
@@ -93,4 +93,3 @@ checkpoint:
   save_every_hours: 2.0
   checkpoint_dir: "/content/drive/MyDrive/smol-lm-checkpoints"
   keep_last_n: 3
-

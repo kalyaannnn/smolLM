@@ -1,0 +1,96 @@
+# SmolLM Pretraining Configuration
+# ~600M parameter model on single A100 80GB
+
+# Model architecture
+model:
+  d_model: 1536
+  n_layers: 24
+  n_heads: 12
+  n_kv_heads: 4          # GQA: 3:1 ratio
+  ffn_dim: 4096          # ~2.67x expansion (SwiGLU param parity)
+  vocab_size: 32000      # Will be updated from tokenizer
+  max_seq_len: 2048
+  rope_theta: 10000.0
+  nope_layer_interval: 4  # Hybrid NoPE: remove RoPE every 4th layer
+  dropout: 0.0
+  attention_dropout: 0.0
+  use_flash_attn: true
+  init_std_factor: 0.5   # Truncated normal std = 0.5/sqrt(d_model)
+  scale_embeddings: true  # Multiply embedding output by sqrt(d_model)
+  tie_embeddings: true
+
+# Tokenizer (pre-trained, no training needed)
+tokenizer:
+  name: "meta-llama/Llama-2-7b-hf"
+
+# Training configuration (realistic for single A100 80GB)
+training:
+  total_tokens: 10_000_000_000   # 10B tokens
+  micro_batch_size: 48           # Sequences per forward/backward
+  seq_len: 2048
+  gradient_accumulation: 16      # Effective: 48 * 16 * 2048 = 1.57M tokens/step
+  precision: "bf16"              # BF16 for A100 (auto fallback to FP16)
+
+# Optimizer configuration (Muon + AdamW split)
+optimizer:
+  muon_lr: 0.02                  # Base LR for Muon (2D weights)
+  adam_lr: 3e-4                  # LR for AdamW (1D params, embeddings)
+  weight_decay: 0.1              # Not applied to embeddings
+  grad_clip: 1.0
+  muon_momentum: 0.95
+  adam_betas: [0.9, 0.95]
+
+# WSD Scheduler (Warmup-Stable-Decay)
+scheduler:
+  warmup_steps: 2000             # ~3.1B warmup tokens
+  decay_ratio: 0.1               # Last 10% of training
+  min_lr_ratio: 0.1              # Decay to 10% of peak LR
+
+# Data mix (87% web, 10% code, 3% math)
+data:
+  web:
+    weight: 0.87
+    sources:
+      - name: "HuggingFaceFW/fineweb-edu"
+        weight: 0.5
+      - name: "mlfoundations/dclm-baseline-1.0"
+        weight: 0.5
+  code:
+    weight: 0.10
+    sources:
+      - name: "bigcode/the-stack-dedup"
+        weight: 1.0
+  math:
+    weight: 0.03
+    sources:
+      - name: "open-web-math/open-web-math"
+        weight: 1.0
+
+# Held-out validation shards
+validation:
+  eval_every_steps: 100
+  web:
+    num_samples: 5000
+    seed: 42
+  code:
+    num_samples: 2000
+    seed: 42
+  math:
+    num_samples: 1000
+    seed: 42
+
+# Logging
+logging:
+  log_every_steps: 10
+  eval_every_steps: 100
+  project: "smol-lm"
+  use_wandb: true
+  log_dir: "./logs"
+
+# Checkpointing (Colab reliability)
+checkpoint:
+  save_every_steps: 500
+  save_every_hours: 2.0
+  checkpoint_dir: "/content/drive/MyDrive/smol-lm-checkpoints"
+  keep_last_n: 3
+

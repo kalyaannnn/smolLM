@@ -1,0 +1,48 @@
+# SmolLM 600M Model Configuration
+# Dense decoder-only Transformer with ~580-620M parameters
+
+# Core dimensions
+d_model: 1536
+n_layers: 24
+n_heads: 12
+n_kv_heads: 4           # GQA: 12/4 = 3 query heads per KV head
+
+# FFN dimensions (SwiGLU)
+ffn_dim: 4096           # ~2.67x expansion (SwiGLU param parity)
+
+# Vocabulary
+vocab_size: 32000       # Matches Llama 2 tokenizer
+
+# Sequence length
+max_seq_len: 2048
+
+# Position embeddings
+rope_theta: 10000.0
+nope_layer_interval: 4  # Hybrid NoPE: layers 3,7,11,15,19,23 skip RoPE
+
+# Regularization
+dropout: 0.0
+attention_dropout: 0.0
+
+# Initialization
+init_std_factor: 0.5    # std = 0.5 / sqrt(d_model) ≈ 0.0128
+scale_embeddings: true  # Multiply embedding output by sqrt(d_model)
+
+# Weight tying
+tie_embeddings: true
+
+# Attention implementation
+use_flash_attn: true
+
+# Precision (for inference/training)
+dtype: "bfloat16"
+
+# Estimated parameters:
+# - Embeddings: 32000 * 1536 = 49.2M
+# - Per layer attention: ~6.3M (with GQA)
+# - Per layer MLP: ~28.3M (SwiGLU)
+# - Per layer norms: ~3K
+# - 24 layers: ~830M
+# - Final norm: ~1.5K
+# With tied embeddings: ~580M total
+

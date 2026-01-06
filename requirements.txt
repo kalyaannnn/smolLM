@@ -1,0 +1,38 @@
+# SmolLM Training Pipeline - Requirements
+# For A100 80GB on Colab Pro
+
+# Core ML
+torch>=2.2.0
+numpy>=1.24.0
+
+# HuggingFace ecosystem
+transformers>=4.40.0
+datasets>=2.18.0
+accelerate>=0.28.0
+safetensors>=0.4.0
+tokenizers>=0.15.0
+
+# Flash Attention 2 (install separately on Colab - needs CUDA)
+# pip install flash-attn --no-build-isolation
+# flash-attn>=2.5.0
+
+# Logging & Monitoring
+wandb>=0.16.0
+
+# Evaluation
+lm-eval>=0.4.0
+
+# Config & Utils
+pyyaml>=6.0
+omegaconf>=2.3.0
+tqdm>=4.66.0
+einops>=0.7.0
+
+# For tokenizers (SentencePiece backend)
+sentencepiece>=0.2.0
+protobuf>=4.25.0
+
+
+# Development
+rich>=13.0.0  # Pretty logging
+

@@ -1,0 +1,77 @@
+# SmolLM RLVR (RL from Verifiable Rewards) Configuration
+# Optional stage - requires a verifier model
+
+# Base model (set via --base-model CLI arg)
+model:
+  base_checkpoint: null
+
+# Verifier model (for reward computation)
+verifier:
+  model_path: null  # Set via --verifier-model CLI arg
+  # For math: can use a small classifier or LLM-based verifier
+  # For code: can use execution-based verification
+
+# Tokenizer
+tokenizer:
+  name: "meta-llama/Llama-2-7b-hf"
+
+# RLVR Dataset (problems with verifiable solutions)
+data:
+  dataset: "openai/gsm8k"  # Math problems with answers
+  split: "train"
+  max_samples: 5000
+
+# Training configuration
+training:
+  epochs: 1
+  micro_batch_size: 4
+  gradient_accumulation: 8
+  seq_len: 2048
+  precision: "bf16"
+  
+  # Generation for RLVR
+  num_generations_per_prompt: 4
+  max_new_tokens: 512
+  temperature: 0.7
+  top_p: 0.9
+
+# RLVR specific parameters
+rlvr:
+  # PPO parameters
+  ppo_epochs: 2
+  cliprange: 0.2
+  cliprange_value: 0.2
+  vf_coef: 0.1
+  
+  # KL penalty
+  init_kl_coef: 0.1
+  target_kl: 6.0
+  
+  # Reward scaling
+  reward_baseline: "mean"  # "mean" or "none"
+  reward_scale: 1.0
+
+# Optimizer
+optimizer:
+  lr: 1e-6
+  weight_decay: 0.01
+  grad_clip: 1.0
+  betas: [0.9, 0.95]
+
+# Scheduler
+scheduler:
+  warmup_ratio: 0.1
+  scheduler_type: "constant"
+
+# Logging
+logging:
+  log_every_steps: 5
+  project: "smol-lm"
+  use_wandb: true
+
+# Checkpointing
+checkpoint:
+  save_every_steps: 50
+  checkpoint_dir: "/content/drive/MyDrive/smol-lm-checkpoints/rlvr"
+  keep_last_n: 2
+

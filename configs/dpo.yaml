@@ -1,0 +1,61 @@
+# SmolLM DPO (Direct Preference Optimization) Configuration
+
+# Base model (set via --base-model CLI arg)
+model:
+  base_checkpoint: null
+
+# Tokenizer
+tokenizer:
+  name: "meta-llama/Llama-2-7b-hf"
+
+# DPO Dataset
+data:
+  dataset: "argilla/dpo-mix-7k"
+  split: "train"
+  max_samples: null
+
+# Training configuration
+training:
+  epochs: 1
+  micro_batch_size: 8   # DPO needs 2x memory (chosen + rejected)
+  gradient_accumulation: 4
+  seq_len: 2048
+  precision: "bf16"
+
+# DPO specific parameters
+dpo:
+  beta: 0.1                    # KL penalty coefficient
+  reference_free: false        # Use reference model (recommended)
+  label_smoothing: 0.0
+  loss_type: "sigmoid"         # "sigmoid" or "hinge"
+
+# Optimizer
+optimizer:
+  lr: 5e-7                     # Very low LR for preference tuning
+  weight_decay: 0.01
+  grad_clip: 1.0
+  betas: [0.9, 0.95]
+
+# Scheduler
+scheduler:
+  warmup_ratio: 0.1
+  scheduler_type: "cosine"
+  min_lr_ratio: 0.0
+
+# Validation
+validation:
+  eval_every_steps: 25
+  eval_samples: 200
+
+# Logging
+logging:
+  log_every_steps: 5
+  project: "smol-lm"
+  use_wandb: true
+
+# Checkpointing
+checkpoint:
+  save_every_steps: 100
+  checkpoint_dir: "/content/drive/MyDrive/smol-lm-checkpoints/dpo"
+  keep_last_n: 2
+

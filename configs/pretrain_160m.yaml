@@ -42,7 +42,7 @@ optimizer:
 
 # Scheduler
 scheduler:
-  warmup_steps: 2000
+  warmup_steps: 200   # ~12.5% of total ~1.6k steps for 5B tokens
   decay_ratio: 0.1
   min_lr_ratio: 0.1
 

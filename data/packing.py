@@ -200,7 +200,9 @@ class SequencePacker:
             input_ids, boundaries = self.pack_documents(docs)
             
             labels = create_labels(input_ids, boundaries)
-            attention_mask = create_document_mask(boundaries, self.seq_len)
+            # sdpa expects attn_mask broadcastable to [batch, heads, seq, seq];
+            # keep per-head broadcasting by adding a singleton head dim.
+            attention_mask = create_document_mask(boundaries, self.seq_len).unsqueeze(0)
             position_ids = create_position_ids(boundaries, self.seq_len)
             
             batch_input_ids.append(input_ids)
@@ -219,7 +221,7 @@ class SequencePacker:
         return PackedBatch(
             input_ids=torch.stack(batch_input_ids),
             labels=torch.stack(batch_labels),
-            attention_mask=torch.stack(batch_attention_masks),
+            attention_mask=torch.stack(batch_attention_masks),  # [batch, 1, seq, seq]
             position_ids=torch.stack(batch_position_ids),
             doc_boundaries=batch_boundaries,
             cu_seqlens=torch.tensor(all_cu_seqlens, dtype=torch.int32),
@@ -364,4 +366,3 @@ if __name__ == "__main__":
     print(f"cu_seqlens: {packed.cu_seqlens.tolist()}")
     
     print("\nPacking test passed!")
-

@@ -58,7 +58,7 @@ data:
   code:
     weight: 0.10
     sources:
-      - name: "bigcode/the-stack-dedup"
+      - name: "codeparrot/codeparrot-clean"
         weight: 1.0
   math:
     weight: 0.03

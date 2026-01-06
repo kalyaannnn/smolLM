@@ -97,7 +97,6 @@ class DomainStream:
                     dataset_name,
                     split=self.split,
                     streaming=True,
-                    trust_remote_code=True,
                 )
                 # Shuffle with seed for determinism
                 ds = ds.shuffle(seed=self.seed, buffer_size=self.buffer_size)
@@ -337,4 +336,3 @@ if __name__ == "__main__":
         
     except Exception as e:
         print(f"Test skipped (may need network): {e}")
-

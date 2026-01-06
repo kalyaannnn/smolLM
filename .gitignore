@@ -26,7 +26,8 @@ logs/
 wandb/
 
 # Data
-data/
+data/raw/
+data/cache/
 datasets/
 *.parquet
 *.arrow
@@ -50,4 +51,3 @@ Thumbs.db
 *.tmp
 *.log
 test_*/
-

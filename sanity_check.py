@@ -193,5 +193,4 @@ print("\nYou're ready to train! Next steps:")
 print("1. Push code to GitHub")
 print("2. Open Colab notebook")
 print("3. Clone repo and start training")
-print("\nRun: python train_pretrain.py --config configs/pretrain.yaml")
-
+print("\nRecommended: python train_pretrain.py --config configs/pretrain_160m.yaml")

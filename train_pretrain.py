@@ -221,11 +221,27 @@ def create_dataloader(
 ):
     """Create streaming dataloader with packing."""
     train_config = config["training"]
+    data_config = config.get("data", {})
+
+    # Build domain configs from YAML (fallback to defaults if missing)
+    domain_configs = {}
+    if data_config:
+        for name, cfg in data_config.items():
+            sources = [(s["name"], s["weight"]) for s in cfg.get("sources", [])]
+            domain_configs[name] = DomainConfig(
+                name=name,
+                weight=cfg.get("weight", 0),
+                sources=sources,
+                max_tokens=cfg.get("max_tokens"),
+                text_field=cfg.get("text_field", "text"),
+            )
+    else:
+        domain_configs = DEFAULT_DOMAIN_MIX
     
     # Create dataset
     dataset = MixedDomainDataset(
         tokenizer=tokenizer,
-        domains=DEFAULT_DOMAIN_MIX,
+        domains=domain_configs,
         seed=42,
         total_tokens=train_config["total_tokens"],
     )
@@ -566,7 +582,9 @@ def train(
         print(f"\nTraining completed!")
         print(f"Total time: {total_time / 3600:.2f} hours")
         print(f"Total tokens: {cost_tracker.tokens_processed:,}")
-        print(f"Final loss: {metric_tracker.get_last('loss'):.4f}")
+        final_loss = metric_tracker.get_last("loss")
+        final_loss_str = f"{final_loss:.4f}" if final_loss is not None else "n/a"
+        print(f"Final loss: {final_loss_str}")
         print(cost_tracker.format_status())
         
         logger.finish()
@@ -600,6 +618,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
 

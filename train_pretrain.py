@@ -235,10 +235,14 @@ def create_dataloader(
     )
     
     # Create collator for packing
+    docs_per_sequence = train_config.get("docs_per_sequence", 4)
+    use_attention_mask = train_config.get("use_attention_mask", True)
     collator = PackingCollator(
         seq_len=train_config["seq_len"],
         pad_token_id=tokenizer.pad_token_id,
         eos_token_id=tokenizer.eos_token_id,
+        docs_per_sequence=docs_per_sequence,
+        include_attention_mask=use_attention_mask,
     )
     
     # Create dataloader
@@ -267,7 +271,9 @@ def train_step(
     # Move batch to device
     input_ids = batch.input_ids.to(device)
     labels = batch.labels.to(device)
-    attention_mask = batch.attention_mask.to(device)
+    attention_mask = batch.attention_mask
+    if attention_mask is not None:
+        attention_mask = attention_mask.to(device)
     position_ids = batch.position_ids.to(device)
     
     # Determine dtype

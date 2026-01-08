@@ -140,7 +140,7 @@ python inference.py --checkpoint pretrain_final.pt --interactive
 | n_kv_heads | 4 | KV heads (GQA 3:1) |
 | ffn_dim | 2048 | ~2.67x (SwiGLU parity) |
 | vocab_size | 32000 | Llama 2 tokenizer |
-| max_seq_len | 1024 | Context length |
+| max_seq_len | 512 | Context length |
 
 **Total: ~138M parameters | Training time depends on token budget and throughput**
 
@@ -227,7 +227,7 @@ Typical 160M (A100 80GB, BF16):
 
 | Stage | Micro-batch | Grad Accum | Tokens/step |
 |-------|-------------|------------|-------------|
-| Pretrain | 32 | 48 | 1.57M |
+| Pretrain | 64 | 24 | 786K |
 | SFT | 16 | 4 | 65K |
 | DPO | 8 | 4 | 32K |
 

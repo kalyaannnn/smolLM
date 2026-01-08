@@ -8,7 +8,7 @@ often-overlooked detail in LLM training.
 Output format:
 - input_ids: [batch, seq_len] packed sequences
 - labels: [batch, seq_len] with -100 at document boundaries
-- attention_mask: [batch, 1, seq_len, seq_len] block-diagonal mask (True = masked)
+- attention_mask: Optional [batch, 1, seq_len, seq_len] block-diagonal mask (True = masked)
 - position_ids: [batch, seq_len] reset per document
 - cu_seqlens: [num_docs + 1] cumulative lengths for Flash Attention varlen
 """
@@ -22,7 +22,7 @@ class PackedBatch:
     """Container for a packed batch."""
     input_ids: torch.Tensor           # [batch, seq_len]
     labels: torch.Tensor              # [batch, seq_len], -100 at boundaries
-    attention_mask: torch.Tensor      # [batch, 1, seq_len, seq_len] block diagonal mask
+    attention_mask: Optional[torch.Tensor]  # [batch, 1, seq_len, seq_len] block diagonal mask
     position_ids: torch.Tensor        # [batch, seq_len] reset per doc
     doc_boundaries: List[List[int]]   # Document end positions per batch item
     cu_seqlens: Optional[torch.Tensor] = None  # For Flash Attention varlen
@@ -180,6 +180,7 @@ class SequencePacker:
     def pack_batch(
         self,
         document_batches: List[List[List[int]]],
+        include_attention_mask: bool = True,
     ) -> PackedBatch:
         """
         Pack multiple batches of documents.
@@ -203,14 +204,24 @@ class SequencePacker:
             input_ids, boundaries = self.pack_documents(docs)
             
             labels = create_labels(input_ids, boundaries)
-            # sdpa expects attn_mask broadcastable to [batch, heads, seq, seq];
-            # keep per-head broadcasting by adding a singleton head dim.
-            attention_mask = create_document_mask(boundaries, self.seq_len).unsqueeze(0)
+            # Ignore padding in loss (after last document boundary)
+            if boundaries:
+                pad_start = boundaries[-1]
+                if pad_start < self.seq_len:
+                    labels[pad_start:] = -100
+            else:
+                labels[:] = -100
+            attention_mask = None
+            if include_attention_mask:
+                # sdpa expects attn_mask broadcastable to [batch, heads, seq, seq];
+                # keep per-head broadcasting by adding a singleton head dim.
+                attention_mask = create_document_mask(boundaries, self.seq_len).unsqueeze(0)
             position_ids = create_position_ids(boundaries, self.seq_len)
             
             batch_input_ids.append(input_ids)
             batch_labels.append(labels)
-            batch_attention_masks.append(attention_mask)
+            if include_attention_mask:
+                batch_attention_masks.append(attention_mask)
             batch_position_ids.append(position_ids)
             batch_boundaries.append(boundaries)
             
@@ -221,10 +232,13 @@ class SequencePacker:
                 max_doc_len = max(max_doc_len, doc_len)
                 all_cu_seqlens.append(all_cu_seqlens[-1] + doc_len)
         
+        attention_mask = None
+        if include_attention_mask:
+            attention_mask = torch.stack(batch_attention_masks)  # [batch, 1, seq, seq]
         return PackedBatch(
             input_ids=torch.stack(batch_input_ids),
             labels=torch.stack(batch_labels),
-            attention_mask=torch.stack(batch_attention_masks),  # [batch, 1, seq, seq]
+            attention_mask=attention_mask,
             position_ids=torch.stack(batch_position_ids),
             doc_boundaries=batch_boundaries,
             cu_seqlens=torch.tensor(all_cu_seqlens, dtype=torch.int32),
@@ -250,6 +264,7 @@ class PackingCollator:
         pad_token_id: int = 0,
         eos_token_id: Optional[int] = None,
         docs_per_sequence: int = 4,  # Target docs per packed sequence
+        include_attention_mask: bool = True,
     ):
         self.packer = SequencePacker(
             seq_len=seq_len,
@@ -258,6 +273,7 @@ class PackingCollator:
         )
         self.seq_len = seq_len
         self.docs_per_sequence = docs_per_sequence
+        self.include_attention_mask = include_attention_mask
     
     def __call__(self, batch: List[List[int]]) -> PackedBatch:
         """
@@ -290,7 +306,10 @@ class PackingCollator:
         if current_batch:
             document_batches.append(current_batch)
         
-        return self.packer.pack_batch(document_batches)
+        return self.packer.pack_batch(
+            document_batches,
+            include_attention_mask=self.include_attention_mask,
+        )
 
 
 def unpack_for_flash_attn(

@@ -9,7 +9,7 @@ model:
   n_kv_heads: 4          # GQA: 3:1 ratio
   ffn_dim: 2048         # ~2.67x expansion
   vocab_size: 32000
-  max_seq_len: 1024
+  max_seq_len: 512
   rope_theta: 10000.0
   nope_layer_interval: 4
   dropout: 0.0
@@ -25,10 +25,12 @@ tokenizer:
 
 # Training configuration (can use larger batch with smaller model)
 training:
-  total_tokens: 5_000_000_000    # 5B tokens
-  micro_batch_size: 32
-  seq_len: 1024
-  gradient_accumulation: 48       # Effective: 32 * 48 * 1024 = 1.57M tokens/step
+  total_tokens: 2_000_000_000    # 2B tokens
+  micro_batch_size: 64
+  seq_len: 512
+  gradient_accumulation: 24       # Effective: 64 * 24 * 512 = 786,432 tokens/step
+  docs_per_sequence: 1
+  use_attention_mask: false
   precision: "bf16"
 
 # Optimizer (AdamW)
@@ -41,7 +43,7 @@ optimizer:
 
 # Scheduler
 scheduler:
-  warmup_steps: 200
+  warmup_steps: 100
   decay_ratio: 0.1
   min_lr_ratio: 0.1
 

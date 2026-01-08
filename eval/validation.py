@@ -180,7 +180,9 @@ class ValidationEvaluator:
                 
                 input_ids = packed_batch.input_ids.to(self.device)
                 labels = packed_batch.labels.to(self.device)
-                attention_mask = packed_batch.attention_mask.to(self.device)
+                attention_mask = packed_batch.attention_mask
+                if attention_mask is not None:
+                    attention_mask = attention_mask.to(self.device)
                 position_ids = packed_batch.position_ids.to(self.device)
                 
                 # Forward pass

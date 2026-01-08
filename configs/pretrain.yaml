@@ -34,7 +34,7 @@ training:
 # Optimizer configuration (Muon + AdamW split)
 optimizer:
   muon_lr: 0.02                  # Base LR for Muon (2D weights)
-  adam_lr: 3e-4                  # LR for AdamW (1D params, embeddings)
+  adam_lr: 0.0003                # LR for AdamW (1D params, embeddings)
   weight_decay: 0.1              # Not applied to embeddings
   grad_clip: 1.0
   muon_momentum: 0.95
@@ -58,8 +58,9 @@ data:
   code:
     weight: 0.10
     sources:
-      - name: "bigcode/the-stack-dedup"
+      - name: "codeparrot/codeparrot-clean"
         weight: 1.0
+    text_field: "content"
   math:
     weight: 0.03
     sources:
@@ -93,4 +94,3 @@ checkpoint:
   save_every_hours: 2.0
   checkpoint_dir: "/content/drive/MyDrive/smol-lm-checkpoints"
   keep_last_n: 3
-

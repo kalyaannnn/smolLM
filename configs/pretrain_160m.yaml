@@ -60,6 +60,7 @@ data:
     sources:
       - name: "codeparrot/codeparrot-clean"
         weight: 1.0
+    text_field: "content"
   math:
     weight: 0.03
     sources:

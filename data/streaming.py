@@ -74,12 +74,14 @@ class DomainStream:
         seed: int = 42,
         buffer_size: int = 10000,
         split: str = "train",
+        max_length: Optional[int] = None,
     ):
         self.config = config
         self.tokenizer = tokenizer
         self.seed = seed
         self.buffer_size = buffer_size
         self.split = split
+        self.max_length = max_length
         
         self.rng = random.Random(seed)
         self.tokens_yielded = 0
@@ -142,7 +144,15 @@ class DomainStream:
             text = self._buffer.pop(0)
             
             # Tokenize
-            tokens = self.tokenizer.encode(text, add_special_tokens=False)
+            if self.max_length:
+                tokens = self.tokenizer.encode(
+                    text,
+                    add_special_tokens=False,
+                    truncation=True,
+                    max_length=self.max_length,
+                )
+            else:
+                tokens = self.tokenizer.encode(text, add_special_tokens=False)
             
             # Check token budget
             if self.config.max_tokens and self.tokens_yielded >= self.config.max_tokens:
@@ -180,12 +190,14 @@ class MixedDomainDataset(IterableDataset):
         seed: int = 42,
         buffer_size: int = 10000,
         total_tokens: Optional[int] = None,
+        max_length: Optional[int] = None,
     ):
         self.tokenizer = tokenizer
         self.domains = domains or DEFAULT_DOMAIN_MIX
         self.seed = seed
         self.buffer_size = buffer_size
         self.total_tokens = total_tokens
+        self.max_length = max_length
         
         # Create domain streams
         self.streams = {
@@ -194,6 +206,7 @@ class MixedDomainDataset(IterableDataset):
                 tokenizer=tokenizer,
                 seed=seed + hash(name) % 10000,
                 buffer_size=buffer_size,
+                max_length=max_length,
             )
             for name, config in self.domains.items()
         }
@@ -211,31 +224,28 @@ class MixedDomainDataset(IterableDataset):
     def __iter__(self) -> Iterator[List[int]]:
         """Iterate over tokenized documents from mixed domains."""
         domain_iters = {name: iter(stream) for name, stream in self.streams.items()}
+        active_domains = list(domain_iters.keys())
         
         while True:
             # Check total budget
             if self.total_tokens and self.tokens_yielded >= self.total_tokens:
                 break
+            if not active_domains:
+                break
             
             # Sample domain
-            domain = self._sample_domain()
+            weights = [self.domains[d].weight for d in active_domains]
+            if sum(weights) <= 0:
+                break
+            domain = self.rng.choices(active_domains, weights=weights)[0]
             
             try:
                 tokens = next(domain_iters[domain])
                 self.tokens_yielded += len(tokens)
                 yield tokens
             except StopIteration:
-                # Domain exhausted, try others
-                active_domains = [d for d in domain_iters if d != domain]
-                if not active_domains:
-                    break
-                
-                # Re-weight remaining domains
-                remaining_weight = sum(
-                    self.domains[d].weight for d in active_domains
-                )
-                if remaining_weight == 0:
-                    break
+                # Domain exhausted, drop it
+                active_domains = [d for d in active_domains if d != domain]
     
     def get_state(self) -> dict:
         """Get state for checkpointing."""

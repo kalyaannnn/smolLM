@@ -101,7 +101,6 @@ def load_preference_dataset(tokenizer, config: Dict[str, Any]):
     dataset = load_dataset(
         data_config["dataset"],
         split=data_config["split"],
-        trust_remote_code=True,
     )
     
     if data_config.get("max_samples"):
@@ -439,6 +438,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 

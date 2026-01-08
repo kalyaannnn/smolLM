@@ -56,7 +56,6 @@ class ValidationEvaluator:
                     "HuggingFaceFW/fineweb-edu",
                     split="train",
                     streaming=True,
-                    trust_remote_code=True,
                 )
                 # Sample deterministically
                 rng = random.Random(web_config.get("seed", 42))
@@ -67,7 +66,12 @@ class ValidationEvaluator:
                     if i % 100 == 0:  # Sample every 100th for speed
                         text = item.get("text", "")
                         if text:
-                            tokens = self.tokenizer.encode(text, add_special_tokens=False)
+                            tokens = self.tokenizer.encode(
+                                text,
+                                add_special_tokens=False,
+                                truncation=True,
+                                max_length=2048,
+                            )
                             if len(tokens) > 100:  # Filter very short docs
                                 samples.append(tokens[:2048])  # Truncate
                 shards["web"] = samples[:web_config.get("num_samples", 5000)]
@@ -80,10 +84,9 @@ class ValidationEvaluator:
             try:
                 code_config = val_config["code"]
                 ds = load_dataset(
-                    "bigcode/the-stack-dedup",
+                    "codeparrot/codeparrot-clean",
                     split="train",
                     streaming=True,
-                    trust_remote_code=True,
                 )
                 rng = random.Random(code_config.get("seed", 42))
                 samples = []
@@ -93,7 +96,12 @@ class ValidationEvaluator:
                     if i % 50 == 0:
                         content = item.get("content", "")
                         if content:
-                            tokens = self.tokenizer.encode(content, add_special_tokens=False)
+                            tokens = self.tokenizer.encode(
+                                content,
+                                add_special_tokens=False,
+                                truncation=True,
+                                max_length=2048,
+                            )
                             if len(tokens) > 100:
                                 samples.append(tokens[:2048])
                 shards["code"] = samples[:code_config.get("num_samples", 2000)]
@@ -109,7 +117,6 @@ class ValidationEvaluator:
                     "open-web-math/open-web-math",
                     split="train",
                     streaming=True,
-                    trust_remote_code=True,
                 )
                 rng = random.Random(math_config.get("seed", 42))
                 samples = []
@@ -119,7 +126,12 @@ class ValidationEvaluator:
                     if i % 20 == 0:
                         text = item.get("text", "")
                         if text:
-                            tokens = self.tokenizer.encode(text, add_special_tokens=False)
+                            tokens = self.tokenizer.encode(
+                                text,
+                                add_special_tokens=False,
+                                truncation=True,
+                                max_length=2048,
+                            )
                             if len(tokens) > 100:
                                 samples.append(tokens[:2048])
                 shards["math"] = samples[:math_config.get("num_samples", 1000)]
@@ -231,4 +243,3 @@ def run_validation(
     """
     evaluator = ValidationEvaluator(model, tokenizer, config, device)
     return evaluator.evaluate(max_samples_per_domain=max_samples_per_domain)
-

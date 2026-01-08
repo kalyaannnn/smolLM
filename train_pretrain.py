@@ -228,12 +228,14 @@ def create_dataloader(
     if data_config:
         for name, cfg in data_config.items():
             sources = [(s["name"], s["weight"]) for s in cfg.get("sources", [])]
+            default_domain = DEFAULT_DOMAIN_MIX.get(name)
+            text_field = cfg.get("text_field") or (default_domain.text_field if default_domain else "text")
             domain_configs[name] = DomainConfig(
                 name=name,
                 weight=cfg.get("weight", 0),
                 sources=sources,
                 max_tokens=cfg.get("max_tokens"),
-                text_field=cfg.get("text_field", "text"),
+                text_field=text_field,
             )
     else:
         domain_configs = DEFAULT_DOMAIN_MIX
@@ -244,6 +246,7 @@ def create_dataloader(
         domains=domain_configs,
         seed=42,
         total_tokens=train_config["total_tokens"],
+        max_length=train_config["seq_len"],
     )
     
     # Create collator for packing
@@ -618,4 +621,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

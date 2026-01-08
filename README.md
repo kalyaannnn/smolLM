@@ -3,7 +3,7 @@
 A complete, production-quality training pipeline for language models (160M or 600M parameters) on a single A100 80GB GPU. Demonstrates end-to-end LLM development: **Pretrain → SFT → DPO → RLVR**.
 
 **Two model sizes available:**
-- **160M model**: Fast iteration (~7 hours for 10B tokens), great for testing
+- **160M model**: Fast iteration (token budget dependent), great for testing
 - **600M model**: Production quality (~18 hours for 10B tokens), better benchmarks
 
 ## Features
@@ -34,11 +34,23 @@ A complete, production-quality training pipeline for language models (160M or 60
 
 ## Quick Start
 
-### Option 1: Colab Enterprise (Recommended)
+### Step 1: Push to GitHub (if needed)
 
-1. **Open Colab**: [colab.research.google.com](https://colab.research.google.com)
-2. **Upload notebook**: `scripts/colab_setup.ipynb` OR create new notebook
-3. **Run setup cells**:
+```bash
+cd /Users/kalyaanrao/finalVersion
+git init
+git add .
+git commit -m "Initial commit: SmolLM training pipeline"
+git remote add origin https://github.com/kalyaannnn/smolLM.git
+git branch -M main
+git push -u origin main
+```
+
+### Step 2: Open Colab & Run Setup
+
+1. Open [colab.research.google.com](https://colab.research.google.com)
+2. Upload `scripts/colab_setup.ipynb` (or create a new notebook)
+3. Run these cells in order:
    ```python
    # Install dependencies
    !pip install -q torch transformers datasets accelerate wandb pyyaml einops tqdm
@@ -47,19 +59,31 @@ A complete, production-quality training pipeline for language models (160M or 60
    # Mount Google Drive
    from google.colab import drive
    drive.mount('/content/drive')
+   !mkdir -p /content/drive/MyDrive/smol-lm-checkpoints
    
    # Clone repo
    !git clone https://github.com/kalyaannnn/smolLM.git
    %cd smolLM
+   import os, sys
+   sys.path.append(os.getcwd())
    
    # Run sanity checks
    !python sanity_check.py
    
-   # Start training
+   # W&B login (optional)
+   !wandb login
+   
+   # Start training (160M)
    !python train_pretrain.py --config configs/pretrain_160m.yaml
    ```
 
-### Option 2: Local Setup
+### Step 3: Monitor Training
+
+- **W&B Dashboard**: visit [wandb.ai](https://wandb.ai) → project `smol-lm-160m`
+- **Checkpoints**: `/content/drive/MyDrive/smol-lm-checkpoints/`
+- **Resume**: `!python train_pretrain.py --config configs/pretrain_160m.yaml --resume`
+
+### Local Setup
 
 ```bash
 # Clone and setup
@@ -79,14 +103,14 @@ python sanity_check.py
 ### Training
 
 ```bash
-# Pretraining - 160M model (faster, ~7 hours for 10B tokens)
+# Pretraining - 160M model (faster, lower compute)
 python train_pretrain.py --config configs/pretrain_160m.yaml
 
 # Pretraining - 600M model (better quality, ~18 hours for 10B tokens)
 python train_pretrain.py --config configs/pretrain.yaml
 
 # Resume from checkpoint
-python train_pretrain.py --config configs/pretrain.yaml --resume
+python train_pretrain.py --config configs/pretrain_160m.yaml --resume
 
 # SFT (from pretrained checkpoint)
 python train_sft.py --config configs/sft.yaml \
@@ -124,9 +148,9 @@ python inference.py --checkpoint pretrain_final.pt --interactive
 | n_kv_heads | 4 | KV heads (GQA 3:1) |
 | ffn_dim | 2048 | ~2.67x (SwiGLU parity) |
 | vocab_size | 32000 | Llama 2 tokenizer |
-| max_seq_len | 2048 | Context length |
+| max_seq_len | 1024 | Context length |
 
-**Total: ~138M parameters | Training: ~7 hours for 10B tokens**
+**Total: ~138M parameters | Training time depends on token budget and throughput**
 
 ### 600M Model (Production Quality)
 | Parameter | Value | Notes |
@@ -165,9 +189,9 @@ def is_nope_layer(layer_idx):
 
 ### Document Masking
 ```python
-# Packed sequences have block-diagonal attention
-# Each document only attends to itself
-mask[doc_start:doc_end, doc_start:doc_end] = True
+# Packed sequences use a block mask
+# True = masked (disallowed) for sdpa
+mask[doc_start:doc_end, doc_start:doc_end] = False
 ```
 
 ### Truncated Normal Init
@@ -250,8 +274,8 @@ For A100 80GB with BF16:
 - **Cost**: ~$45 (at $2.50/hr)
 
 **Full Pipeline (Pretrain + SFT + DPO):**
-- 160M: ~10 hours, ~$25
-- 600M: ~22 hours, ~$55
+- 160M: hours scale with token budget and throughput
+- 600M: longer runs; scale with token budget and throughput
 
 ## Logging & Monitoring
 

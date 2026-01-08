@@ -44,4 +44,3 @@ dtype: "bfloat16"
 # - 16 layers: ~99M
 # - Final norm: ~0.8K
 # With tied embeddings: ~160M total
-

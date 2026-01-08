@@ -52,7 +52,7 @@ drive.mount('/content/drive')
 !wandb login
 
 # Cell 6: Start Training
-!python train_pretrain.py --config configs/pretrain.yaml
+!python train_pretrain.py --config configs/pretrain_160m.yaml
 ```
 
 ---
@@ -61,7 +61,7 @@ drive.mount('/content/drive')
 
 - **W&B Dashboard**: Visit [wandb.ai](https://wandb.ai) → Project "smol-lm"
 - **Checkpoints**: Saved to `/content/drive/MyDrive/smol-lm-checkpoints/`
-- **Resume if disconnected**: `!python train_pretrain.py --config configs/pretrain.yaml --resume`
+- **Resume if disconnected**: `!python train_pretrain.py --config configs/pretrain_160m.yaml --resume`
 
 ---
 
@@ -71,7 +71,7 @@ You should see:
 ```
 ✅ GPU: NVIDIA A100-SXM4-80GB
 ✅ VRAM: 80.0 GB
-✅ Model initialized: 653.2M parameters
+✅ Model initialized: 137.9M parameters
 ✅ Forward pass successful
 ✅ Backward pass successful
 ✅ Optimizer step successful
@@ -82,7 +82,7 @@ You should see:
 
 ## 📊 What to Expect
 
-- **Training time**: ~18 hours for 10B tokens
+- **Training time**: depends on token budget and throughput
 - **Checkpoints**: Every 500 steps (~2 hours)
 - **W&B logs**: Every 10 steps
 - **Validation**: Every 100 steps

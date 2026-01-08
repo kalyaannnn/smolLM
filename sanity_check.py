@@ -53,7 +53,7 @@ except Exception as e:
 # 3. Model Initialization
 print("\n[3/8] Testing model initialization...")
 try:
-    config = SmolLMConfig.smol_600m()
+    config = SmolLMConfig.smol_160m()
     config.use_flash_attn = False  # Disable for CPU testing if needed
     
     model = SmolLM(config)

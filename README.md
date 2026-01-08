@@ -1,10 +1,6 @@
 # SmolLM Training Pipeline
 
-A complete, production-quality training pipeline for language models (160M or 600M parameters) on a single A100 80GB GPU. Demonstrates end-to-end LLM development: **Pretrain → SFT → DPO → RLVR**.
-
-**Two model sizes available:**
-- **160M model**: Fast iteration (token budget dependent), great for testing
-- **600M model**: Production quality (~18 hours for 10B tokens), better benchmarks
+A complete, production-quality training pipeline for a 160M-parameter language model on a single A100 80GB GPU. Demonstrates end-to-end LLM development: **Pretrain → SFT → DPO → RLVR**.
 
 ## Features
 
@@ -15,9 +11,8 @@ A complete, production-quality training pipeline for language models (160M or 60
 - **Tied embeddings**: Parameter efficient
 - **Flash Attention 2**: 2-4x faster attention with memory efficiency
 
-**Model Options:**
+**Model Option:**
 - **160M**: d_model=768, n_layers=18, ~138M params - Fast training, good quality
-- **600M**: d_model=1536, n_layers=24, ~653M params - Best quality, production-ready
 
 ### Training
 - **AdamW optimizer**: Standard, stable training setup
@@ -106,9 +101,6 @@ python sanity_check.py
 # Pretraining - 160M model (faster, lower compute)
 python train_pretrain.py --config configs/pretrain_160m.yaml
 
-# Pretraining - 600M model (better quality, ~18 hours for 10B tokens)
-python train_pretrain.py --config configs/pretrain.yaml
-
 # Resume from checkpoint
 python train_pretrain.py --config configs/pretrain_160m.yaml --resume
 
@@ -152,18 +144,6 @@ python inference.py --checkpoint pretrain_final.pt --interactive
 
 **Total: ~138M parameters | Training time depends on token budget and throughput**
 
-### 600M Model (Production Quality)
-| Parameter | Value | Notes |
-|-----------|-------|-------|
-| d_model | 1536 | Hidden dimension |
-| n_layers | 24 | Transformer blocks |
-| n_heads | 12 | Query heads |
-| n_kv_heads | 4 | KV heads (GQA 3:1) |
-| ffn_dim | 4096 | ~2.67x (SwiGLU parity) |
-| vocab_size | 32000 | Llama 2 tokenizer |
-| max_seq_len | 2048 | Context length |
-
-**Total: ~653M parameters | Training: ~18 hours for 10B tokens**
 
 ## Data Mix
 
@@ -206,9 +186,7 @@ std = 0.5 / sqrt(d_model)  # ≈ 0.0128
 smol-lm/
 ├── configs/              # YAML configurations
 │   ├── model/           # Model architecture configs
-│   │   ├── smol_600m.yaml
 │   │   └── smol_160m.yaml
-│   ├── pretrain.yaml    # 600M pretraining config
 │   ├── pretrain_160m.yaml  # 160M pretraining config
 │   ├── sft.yaml         # SFT config
 │   ├── dpo.yaml         # DPO config
@@ -245,37 +223,21 @@ smol-lm/
 
 ## Memory Requirements
 
-For A100 80GB with BF16:
+Typical 160M (A100 80GB, BF16):
 
-### 160M Model
-| Stage | Micro-batch | Grad Accum | Tokens/step | Memory |
-|-------|-------------|------------|-------------|--------|
-| Pretrain | 96 | 16 | 3.15M | ~15-20GB |
-| SFT | 32 | 4 | 262K | ~10-15GB |
-| DPO | 16 | 4 | 131K | ~15-20GB |
-
-### 600M Model
-| Stage | Micro-batch | Grad Accum | Tokens/step | Memory |
-|-------|-------------|------------|-------------|--------|
-| Pretrain | 48 | 16 | 1.57M | ~25-30GB |
-| SFT | 16 | 4 | 131K | ~15-20GB |
-| DPO | 8 | 4 | 65K | ~25-30GB |
+| Stage | Micro-batch | Grad Accum | Tokens/step |
+|-------|-------------|------------|-------------|
+| Pretrain | 32 | 48 | 1.57M |
+| SFT | 16 | 4 | 65K |
+| DPO | 8 | 4 | 32K |
 
 ## Cost & Time Estimates
 
-### 160M Model (A100 80GB)
-- **Throughput**: ~200K tokens/second
-- **10B tokens**: ~7 hours
-- **Cost**: ~$18 (at $2.50/hr)
+Runtime scales with tokens/sec and token budget. Estimate:
 
-### 600M Model (A100 80GB)
-- **Throughput**: ~150K tokens/second
-- **10B tokens**: ~18 hours
-- **Cost**: ~$45 (at $2.50/hr)
-
-**Full Pipeline (Pretrain + SFT + DPO):**
-- 160M: hours scale with token budget and throughput
-- 600M: longer runs; scale with token budget and throughput
+```
+time_seconds = total_tokens / tokens_per_second
+```
 
 ## Logging & Monitoring
 
@@ -312,10 +274,10 @@ Automatic checkpointing with:
 **Resume training**:
 ```bash
 # Resume from latest checkpoint
-python train_pretrain.py --config configs/pretrain.yaml --resume
+python train_pretrain.py --config configs/pretrain_160m.yaml --resume
 
 # Resume from specific checkpoint
-python train_pretrain.py --config configs/pretrain.yaml \
+python train_pretrain.py --config configs/pretrain_160m.yaml \
     --resume-from /path/to/checkpoint.pt
 ```
 
@@ -333,18 +295,6 @@ Checks:
 - ✅ Optimizer setup
 - ✅ Data loading
 - ✅ W&B connection (optional)
-
-## Performance Comparison
-
-| Metric | 160M Model | 600M Model |
-|--------|-----------|------------|
-| **Parameters** | 138M | 653M |
-| **Training Time (10B)** | ~7 hours | ~18 hours |
-| **MMLU** | ~35-40% | ~45-50% |
-| **GSM8K** | ~15-20% | ~25-30% |
-| **HellaSwag** | ~60-65% | ~70-75% |
-| **Memory (A100 80GB)** | ~15GB | ~25GB |
-| **Best For** | Testing, iteration | Production, benchmarks |
 
 ## References
 

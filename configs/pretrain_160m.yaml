@@ -9,7 +9,7 @@ model:
   n_kv_heads: 4          # GQA: 3:1 ratio
   ffn_dim: 2048         # ~2.67x expansion
   vocab_size: 32000
-  max_seq_len: 2048
+  max_seq_len: 1024
   rope_theta: 10000.0
   nope_layer_interval: 4
   dropout: 0.0
@@ -27,7 +27,7 @@ tokenizer:
 training:
   total_tokens: 5_000_000_000    # 5B tokens
   micro_batch_size: 32
-  seq_len: 2048
+  seq_len: 1024
   gradient_accumulation: 48       # Effective: 32 * 48 * 2048 = 3.15M tokens/step
   precision: "bf16"
 

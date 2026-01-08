@@ -14,7 +14,7 @@ ffn_dim: 2048         # ~2.67x expansion (SwiGLU parity)
 vocab_size: 32000     # Matches Llama 2 tokenizer
 
 # Sequence length
-max_seq_len: 2048
+max_seq_len: 1024
 
 # Position embeddings
 rope_theta: 10000.0

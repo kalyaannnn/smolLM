@@ -26,9 +26,9 @@ tokenizer:
 # Training configuration (can use larger batch with smaller model)
 training:
   total_tokens: 5_000_000_000    # 5B tokens
-  micro_batch_size: 96           # Can fit more sequences (2x)
+  micro_batch_size: 48
   seq_len: 2048
-  gradient_accumulation: 16       # Effective: 96 * 16 * 2048 = 3.15M tokens/step
+  gradient_accumulation: 32       # Effective: 48 * 32 * 2048 = 3.15M tokens/step
   precision: "bf16"
 
 # Optimizer

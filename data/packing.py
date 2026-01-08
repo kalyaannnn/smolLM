@@ -8,7 +8,7 @@ often-overlooked detail in LLM training.
 Output format:
 - input_ids: [batch, seq_len] packed sequences
 - labels: [batch, seq_len] with -100 at document boundaries
-- attention_mask: [batch, seq_len, seq_len] block-diagonal for intra-doc attention
+- attention_mask: [batch, 1, seq_len, seq_len] block-diagonal mask (True = masked)
 - position_ids: [batch, seq_len] reset per document
 - cu_seqlens: [num_docs + 1] cumulative lengths for Flash Attention varlen
 """
@@ -22,7 +22,7 @@ class PackedBatch:
     """Container for a packed batch."""
     input_ids: torch.Tensor           # [batch, seq_len]
     labels: torch.Tensor              # [batch, seq_len], -100 at boundaries
-    attention_mask: torch.Tensor      # [batch, seq_len, seq_len] block diagonal
+    attention_mask: torch.Tensor      # [batch, 1, seq_len, seq_len] block diagonal mask
     position_ids: torch.Tensor        # [batch, seq_len] reset per doc
     doc_boundaries: List[List[int]]   # Document end positions per batch item
     cu_seqlens: Optional[torch.Tensor] = None  # For Flash Attention varlen
@@ -46,19 +46,22 @@ def create_document_mask(
         dtype: Output dtype (bool for memory efficiency)
         
     Returns:
-        [seq_len, seq_len] mask where True = can attend
+        [seq_len, seq_len] mask where True = masked (disallowed) positions
     """
-    mask = torch.zeros(seq_len, seq_len, dtype=dtype)
+    # Build allowed (causal, intra-doc) mask first
+    allowed = torch.zeros(seq_len, seq_len, dtype=torch.bool)
     
     start = 0
     for end in doc_boundaries:
         # Each document attends only to itself (causal within doc)
         for i in range(start, min(end, seq_len)):
             # Can attend to positions [start, i] (causal)
-            mask[i, start:i+1] = True
+            allowed[i, start:i+1] = True
         start = end
     
-    return mask
+    # Convert to masked=True for disallowed positions
+    mask = ~allowed
+    return mask.to(dtype)
 
 
 def create_position_ids(

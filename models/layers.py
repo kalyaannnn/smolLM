@@ -344,7 +344,10 @@ class GroupedQueryAttention(nn.Module):
                 )
                 attn_weights.masked_fill_(causal_mask, float('-inf'))
             else:
-                attn_weights = attn_weights + attention_mask
+                if attention_mask.dtype == torch.bool:
+                    attn_weights = attn_weights.masked_fill(attention_mask, float('-inf'))
+                else:
+                    attn_weights = attn_weights + attention_mask
             
             attn_weights = F.softmax(attn_weights, dim=-1)
             attn_weights = F.dropout(attn_weights, p=self.dropout, training=self.training)
@@ -434,4 +437,3 @@ class TransformerBlock(nn.Module):
         out = h + self.mlp(self.mlp_norm(h))
         
         return out
-

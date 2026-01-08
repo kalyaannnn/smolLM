@@ -53,7 +53,11 @@ except Exception as e:
 # 3. Model Initialization
 print("\n[3/8] Testing model initialization...")
 try:
-    config = SmolLMConfig.smol_160m()
+    # Use model config from YAML to match training settings
+    import yaml
+    with open("configs/model/smol_160m.yaml") as f:
+        model_cfg = yaml.safe_load(f)
+    config = SmolLMConfig.from_dict(model_cfg)
     config.use_flash_attn = False  # Disable for CPU testing if needed
     
     model = SmolLM(config)

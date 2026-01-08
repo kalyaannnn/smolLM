@@ -11,8 +11,7 @@ W&B is fully integrated into the training pipeline. Here's what you get:
 ### Training Metrics (Every 10 steps)
 - `train/loss` - Training loss
 - `train/grad_norm` - Gradient norm (for stability)
-- `train/muon_lr` - Muon optimizer learning rate
-- `train/adam_lr` - AdamW optimizer learning rate
+- `train/lr` - AdamW learning rate
 - `train/tokens_per_sec` - Training throughput
 - `train/tokens_processed` - Total tokens seen
 - `train/progress_percent` - Training progress
@@ -110,4 +109,3 @@ wandb.finish()
 ```
 
 If this works, you're ready to train! 🚀
-

@@ -31,14 +31,13 @@ training:
   gradient_accumulation: 16      # Effective: 48 * 16 * 2048 = 1.57M tokens/step
   precision: "bf16"              # BF16 for A100 (auto fallback to FP16)
 
-# Optimizer configuration (Muon + AdamW split)
+# Optimizer (AdamW)
 optimizer:
-  muon_lr: 0.02                  # Base LR for Muon (2D weights)
-  adam_lr: 0.0003                # LR for AdamW (1D params, embeddings)
-  weight_decay: 0.1              # Not applied to embeddings
+  lr: 0.0003
+  weight_decay: 0.1
   grad_clip: 1.0
-  muon_momentum: 0.95
-  adam_betas: [0.9, 0.95]
+  betas: [0.9, 0.95]
+  eps: 1e-8
 
 # WSD Scheduler (Warmup-Stable-Decay)
 scheduler:

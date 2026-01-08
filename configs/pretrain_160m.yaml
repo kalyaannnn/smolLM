@@ -28,21 +28,20 @@ training:
   total_tokens: 5_000_000_000    # 5B tokens
   micro_batch_size: 32
   seq_len: 1024
-  gradient_accumulation: 48       # Effective: 32 * 48 * 2048 = 3.15M tokens/step
+  gradient_accumulation: 48       # Effective: 32 * 48 * 1024 = 1.57M tokens/step
   precision: "bf16"
 
-# Optimizer
+# Optimizer (AdamW)
 optimizer:
-  muon_lr: 0.02
-  adam_lr: 0.0003
+  lr: 0.0003
   weight_decay: 0.1
   grad_clip: 1.0
-  muon_momentum: 0.95
-  adam_betas: [0.9, 0.95]
+  betas: [0.9, 0.95]
+  eps: 1e-8
 
 # Scheduler
 scheduler:
-  warmup_steps: 200   # ~12.5% of total ~1.6k steps for 5B tokens
+  warmup_steps: 200
   decay_ratio: 0.1
   min_lr_ratio: 0.1
 

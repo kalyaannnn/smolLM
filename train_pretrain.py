@@ -2,8 +2,8 @@
 """
 SmolLM Pretraining Script
 
-Pretrains a ~600M parameter language model with:
-- Muon + AdamW optimizer split
+Pretrains a language model with:
+- AdamW optimizer
 - WSD learning rate schedule
 - Streaming data with domain mixing
 - Sequence packing with document masks
@@ -38,8 +38,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from models.config import SmolLMConfig
 from models.transformer import SmolLM
-from optim.muon import Muon
-from optim.param_groups import get_param_groups
 from optim.scheduler import WSDScheduler
 from data.tokenizer import load_tokenizer
 from data.streaming import MixedDomainDataset, DomainConfig, DEFAULT_DOMAIN_MIX
@@ -85,12 +83,11 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
         
         # Optimizer
         "optimizer": {
-            "muon_lr": 0.02,
-            "adam_lr": 3e-4,
+            "lr": 3e-4,
             "weight_decay": 0.1,
             "grad_clip": 1.0,
-            "muon_momentum": 0.95,
-            "adam_betas": [0.9, 0.95],
+            "betas": [0.9, 0.95],
+            "eps": 1e-8,
         },
         
         # Scheduler
@@ -149,42 +146,38 @@ def setup_model(config: Dict[str, Any], device: str = "cuda") -> SmolLM:
 def setup_optimizers(
     model: SmolLM,
     config: Dict[str, Any],
-) -> tuple:
-    """Set up Muon + AdamW optimizers with proper parameter grouping."""
+) -> torch.optim.AdamW:
+    """Set up AdamW optimizer with standard parameter grouping."""
     opt_config = config["optimizer"]
     
-    # Get parameter groups
-    muon_groups, adam_groups = get_param_groups(
-        model,
-        muon_lr=opt_config["muon_lr"],
-        adam_lr=opt_config["adam_lr"],
-        weight_decay=opt_config["weight_decay"],
-        verbose=True,
-    )
+    decay_params = []
+    no_decay_params = []
+    for name, param in model.named_parameters():
+        if not param.requires_grad:
+            continue
+        if param.ndim >= 2 and "embed" not in name.lower():
+            decay_params.append(param)
+        else:
+            no_decay_params.append(param)
     
-    # Create optimizers
-    muon_optimizer = Muon(
-        muon_groups,
-        lr=opt_config["muon_lr"],
-        momentum=opt_config["muon_momentum"],
-    )
+    param_groups = [
+        {"params": decay_params, "weight_decay": opt_config["weight_decay"]},
+        {"params": no_decay_params, "weight_decay": 0.0},
+    ]
     
-    adam_optimizer = torch.optim.AdamW(
-        adam_groups,
-        lr=opt_config["adam_lr"],
-        betas=tuple(opt_config["adam_betas"]),
-        eps=1e-8,
+    return torch.optim.AdamW(
+        param_groups,
+        lr=opt_config["lr"],
+        betas=tuple(opt_config["betas"]),
+        eps=opt_config.get("eps", 1e-8),
     )
-    
-    return muon_optimizer, adam_optimizer
 
 
 def setup_scheduler(
-    muon_optimizer: Muon,
-    adam_optimizer: torch.optim.AdamW,
+    optimizer: torch.optim.AdamW,
     config: Dict[str, Any],
 ) -> tuple:
-    """Set up WSD schedulers for both optimizers."""
+    """Set up WSD scheduler for AdamW."""
     train_config = config["training"]
     sched_config = config["scheduler"]
     
@@ -196,23 +189,15 @@ def setup_scheduler(
     )
     total_steps = train_config["total_tokens"] // tokens_per_step
     
-    muon_scheduler = WSDScheduler(
-        muon_optimizer,
+    scheduler = WSDScheduler(
+        optimizer,
         warmup_steps=sched_config["warmup_steps"],
         total_steps=total_steps,
         decay_ratio=sched_config["decay_ratio"],
         min_lr_ratio=sched_config["min_lr_ratio"],
     )
     
-    adam_scheduler = WSDScheduler(
-        adam_optimizer,
-        warmup_steps=sched_config["warmup_steps"],
-        total_steps=total_steps,
-        decay_ratio=sched_config["decay_ratio"],
-        min_lr_ratio=sched_config["min_lr_ratio"],
-    )
-    
-    return muon_scheduler, adam_scheduler, total_steps
+    return scheduler, total_steps
 
 
 def create_dataloader(
@@ -270,7 +255,6 @@ def create_dataloader(
 def train_step(
     model: SmolLM,
     batch: PackedBatch,
-    muon_optimizer: Muon,
     adam_optimizer: torch.optim.AdamW,
     scaler: Optional[GradScaler],
     grad_clip: float,
@@ -311,7 +295,6 @@ def train_step(
     if (current_accumulation + 1) % accumulation_steps == 0:
         # Unscale for gradient clipping
         if scaler is not None:
-            scaler.unscale_(muon_optimizer)
             scaler.unscale_(adam_optimizer)
         
         # Clip gradients
@@ -320,15 +303,12 @@ def train_step(
         
         # Optimizer step
         if scaler is not None:
-            scaler.step(muon_optimizer)
             scaler.step(adam_optimizer)
             scaler.update()
         else:
-            muon_optimizer.step()
             adam_optimizer.step()
         
         # Zero gradients
-        muon_optimizer.zero_grad()
         adam_optimizer.zero_grad()
     
     return metrics
@@ -382,13 +362,11 @@ def train(
     model = setup_model(config, device)
     
     # Setup optimizers
-    print("Setting up optimizers...")
-    muon_optimizer, adam_optimizer = setup_optimizers(model, config)
+    print("Setting up optimizer...")
+    adam_optimizer = setup_optimizers(model, config)
     
     # Setup schedulers
-    muon_scheduler, adam_scheduler, total_steps = setup_scheduler(
-        muon_optimizer, adam_optimizer, config
-    )
+    scheduler, total_steps = setup_scheduler(adam_optimizer, config)
     
     # Setup gradient scaler (only for FP16)
     scaler = GradScaler() if train_config["precision"] == "fp16" else None
@@ -411,14 +389,13 @@ def train(
         checkpoint = checkpoint_manager.load(
             resume_from,
             model,
-            {"muon": muon_optimizer, "adam": adam_optimizer},
+            {"adam": adam_optimizer},
+            scheduler=scheduler,
             device=device,
         )
         start_step = checkpoint["step"]
-        if checkpoint.get("scheduler_state"):
-            # Manually set scheduler step
-            muon_scheduler.last_epoch = start_step
-            adam_scheduler.last_epoch = start_step
+        if not checkpoint.get("scheduler_state"):
+            scheduler.last_epoch = start_step
         cost_tracker.tokens_processed = start_step * tokens_per_step
         cost_tracker.steps_completed = start_step
     
@@ -449,7 +426,6 @@ def train(
             metrics = train_step(
                 model=model,
                 batch=batch,
-                muon_optimizer=muon_optimizer,
                 adam_optimizer=adam_optimizer,
                 scaler=scaler,
                 grad_clip=opt_config["grad_clip"],
@@ -466,8 +442,7 @@ def train(
                 continue
             
             # Update schedulers
-            muon_scheduler.step()
-            adam_scheduler.step()
+            scheduler.step()
             
             # Update cost tracker
             cost_tracker.update(steps=1)
@@ -482,7 +457,7 @@ def train(
                 step=step,
                 loss=metrics["loss"],
                 grad_norm=metrics.get("grad_norm", 0),
-                lr=muon_scheduler.get_last_lr()[0],
+                lr=scheduler.get_last_lr()[0],
             )
             for alert in alerts:
                 logger.alert(alert.category, alert.message, alert.severity.upper())
@@ -495,8 +470,7 @@ def train(
                 log_metrics = {
                     "train/loss": metrics["loss"],
                     "train/grad_norm": metrics.get("grad_norm", 0),
-                    "train/muon_lr": muon_scheduler.get_last_lr()[0],
-                    "train/adam_lr": adam_scheduler.get_last_lr()[0],
+                    "train/lr": scheduler.get_last_lr()[0],
                     "train/tokens_per_sec": tokens_per_sec,
                     "train/tokens_processed": cost_tracker.tokens_processed,
                     "train/progress_percent": cost_tracker.progress_percent,
@@ -515,7 +489,7 @@ def train(
                 # Print progress
                 print(f"Step {step}/{total_steps} | "
                       f"Loss: {metrics['loss']:.4f} | "
-                      f"LR: {muon_scheduler.get_last_lr()[0]:.6f} | "
+                      f"LR: {scheduler.get_last_lr()[0]:.6f} | "
                       f"Tokens/s: {tokens_per_sec:,.0f} | "
                       f"Progress: {cost_tracker.progress_percent:.1f}%")
                 
@@ -551,8 +525,8 @@ def train(
                 checkpoint_manager.save(
                     step=step,
                     model=model,
-                    optimizers={"muon": muon_optimizer, "adam": adam_optimizer},
-                    scheduler={"muon": muon_scheduler.state_dict(), "adam": adam_scheduler.state_dict()},
+                    optimizers={"adam": adam_optimizer},
+                    scheduler=scheduler,
                     config=config,
                     metrics=metric_tracker.get_all_means(),
                     dataloader_state=dataset.get_state(),
@@ -569,8 +543,8 @@ def train(
         checkpoint_manager.save(
             step=step,
             model=model,
-            optimizers={"muon": muon_optimizer, "adam": adam_optimizer},
-            scheduler={"muon": muon_scheduler.state_dict(), "adam": adam_scheduler.state_dict()},
+            optimizers={"adam": adam_optimizer},
+            scheduler=scheduler,
             config=config,
             metrics=metric_tracker.get_all_means(),
         )

@@ -123,28 +123,13 @@ except Exception as e:
 # 6. Optimizer Setup
 print("\n[6/8] Testing optimizer setup...")
 try:
-    from optim.param_groups import get_param_groups
-    from optim.muon import Muon
-    
-    muon_groups, adam_groups = get_param_groups(
-        model,
-        muon_lr=0.02,
-        adam_lr=3e-4,
-        weight_decay=0.1,
-        verbose=False,
-    )
-    
-    muon_optimizer = Muon(muon_groups, lr=0.02)
-    adam_optimizer = torch.optim.AdamW(adam_groups, lr=3e-4)
-    
-    print(f"✅ Muon optimizer: {len(muon_groups)} groups")
-    print(f"✅ AdamW optimizer: {len(adam_groups)} groups")
+    adam_optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=0.1)
+    print("✅ AdamW optimizer created")
     
     # Test optimizer step
     outputs = model(input_ids, labels=labels)
     loss = outputs["loss"]
     loss.backward()
-    muon_optimizer.step()
     adam_optimizer.step()
     print("✅ Optimizer step successful")
 except Exception as e:

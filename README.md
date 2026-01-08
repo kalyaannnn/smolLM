@@ -20,7 +20,7 @@ A complete, production-quality training pipeline for language models (160M or 60
 - **600M**: d_model=1536, n_layers=24, ~653M params - Best quality, production-ready
 
 ### Training
-- **Muon + AdamW split**: Shape-based LR transfer for weight matrices
+- **AdamW optimizer**: Standard, stable training setup
 - **WSD scheduler**: Warmup-Stable-Decay for stable training
 - **Deterministic data pipeline**: Exact reproducibility and resume
 - **Sequence packing**: Document boundary masks prevent cross-document leakage
@@ -146,7 +146,7 @@ python inference.py --checkpoint pretrain_final.pt --interactive
 | Domain | Weight | Sources |
 |--------|--------|---------|
 | Web | 87% | FineWeb-Edu (50%), DCLM (50%) |
-| Code | 10% | The Stack |
+| Code | 10% | CodeParrot |
 | Math | 3% | OpenWebMath |
 
 ## Key Implementation Details
@@ -158,14 +158,9 @@ def is_nope_layer(layer_idx):
     return (layer_idx + 1) % 4 == 0
 ```
 
-### Muon + AdamW Split
+### Optimizer (AdamW)
 ```python
-# 2D weights → Muon with shape-based LR
-# 1D params → AdamW
-# Embeddings → AdamW without weight decay
-
-lr_mult = sqrt(max(1, fan_out / fan_in))
-# MLP up-projection (1536→6144) gets ~2x LR
+# AdamW with weight decay (no decay for embeddings/biases)
 ```
 
 ### Document Masking
@@ -203,7 +198,7 @@ smol-lm/
 │   ├── layers.py        # RMSNorm, SwiGLU, GQA
 │   └── transformer.py   # Full model
 ├── optim/                # Optimizers
-│   ├── muon.py          # Muon optimizer
+│   ├── muon.py          # Optional Muon optimizer
 │   ├── param_groups.py  # Parameter grouping
 │   └── scheduler.py     # WSD scheduler
 ├── train/                # Training utilities
@@ -263,7 +258,7 @@ For A100 80GB with BF16:
 **W&B Integration**: Full metrics logging with JSONL fallback
 
 **Training Metrics** (every 10 steps):
-- `train/loss`, `train/grad_norm`, `train/muon_lr`, `train/adam_lr`
+- `train/loss`, `train/grad_norm`, `train/lr`
 - `train/tokens_per_sec`, `train/progress_percent`
 - `gpu/memory_allocated_gb`
 
@@ -330,7 +325,7 @@ Checks:
 ## References
 
 - [SmolLM Blog Post](https://huggingface.co/blog/smollm)
-- [Muon Optimizer (modded-nanogpt)](https://github.com/KellerJordan/modded-nanogpt)
+- [Muon Optimizer (optional reference)](https://github.com/KellerJordan/modded-nanogpt)
 - [Flash Attention 2](https://github.com/Dao-AILab/flash-attention)
 - [Grouped Query Attention](https://arxiv.org/abs/2305.13245)
 
@@ -341,4 +336,3 @@ This is a demonstration project showing production-quality LLM training practice
 ## License
 
 MIT
-
